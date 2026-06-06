@@ -1,0 +1,41 @@
+﻿name: protected-file-scan
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  protected-file-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan changed file paths
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin "${{ github.base_ref }}" --depth=1
+
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" > changed_files.txt
+
+          echo "Changed files:"
+          cat changed_files.txt
+
+          BLOCK_REGEX='(^|/)(BUY_CHECK|engine|signal_rules|alert_rules)(/|\.|$)|broker|order_executor|trade_executor|execution_api|auto_trade|autotrade'
+
+          if grep -Eiq "$BLOCK_REGEX" changed_files.txt; then
+            echo "::error::Protected file path changed."
+            exit 1
+          fi
+
+          echo "PASS: no protected file path matched"
